@@ -69,7 +69,7 @@ reward_mod <- stan(file = "~/Dropbox/Luke_Research/Shot_Policy/nba_replay/code/s
 run_time <- proc.time() - begin_time
 print(run_time) 
 
-# Need to do something about saving the output for the simulation
+# Check diagnostics ----
 
 # Means
 View(summary(reward_mod, pars = "mu")$summary)
@@ -87,4 +87,6 @@ summary(reward_mod, pars = "sigma_xi")$summary
 
 View(summary(reward_mod, pars = "mu_trans_open")$summary)
 View(summary(reward_mod, pars = "mu_trans_cont")$summary)
+
+# Saving output for simulation
 
