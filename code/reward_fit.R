@@ -10,14 +10,20 @@ dat = read.csv("./data/2013_11_01_MIA_BRK_formatted.csv")
 
 # For simplicity in this one-game tutorial, 
 # we do not estimate the make probability of 'heaves',
-# and we use the same naive player positions as in the 
-# policy model.  
+# and we use the same player positions as in the 
+# policy model.  We also simplify the court regions
+# to three levels --- (paint, long2, and three)
 
 dat_reward = dat %>%
   filter(location_id != 'heave',
          event_id %in% c(3,4)) %>%
   mutate(entity = as.factor(as.character(entity)),
-         court_region = as.factor(as.character(location_id)),
+         court_region = as.character(location_id),
+         court_region = ifelse(court_region %in% c('arc3', 'corner3'),
+                               'three',
+                               ifelse(court_region == c('dunk'), 
+                                      'paint', court_region)),
+         court_region = as.factor(as.character(court_region)),
          player_region = as.factor(paste(entity,
                                          court_region,
                                          sep = "_")), 
@@ -44,7 +50,7 @@ reward_stan_input <- list(
   M_player = as.numeric(dat_reward$entity),  
   M_group = as.numeric(dat_reward$position_simple),  
   M_region = as.numeric(dat_reward$court_region),  
-  M_contested = ifelse(dat_reward$def_pres == 'contested', 1, 0),
+  M_open = ifelse(dat_reward$def_pres == 'open', 1, 0),
   # Indexing players
   player_group = player_positions$pos
   # Final-stage (Hyperprior) fixed values
@@ -56,9 +62,10 @@ options(mc.cores = 2)
 begin_time <- proc.time()
 reward_mod <- stan(file = "~/Dropbox/Luke_Research/Shot_Policy/nba_replay/code/stan_models/reward_model.stan",
                    data = reward_stan_input,
-                   iter = 20000,
-                   warmup = 5000,
-                   chains = 2)
+                   iter = 50000,
+                   warmup = 25000,
+                   chains = 2,
+                   thin = 2)
 run_time <- proc.time() - begin_time
 print(run_time) 
 
@@ -75,4 +82,9 @@ summary(reward_mod, pars = "sigma_mu")$summary
 summary(reward_mod, pars = "sigma_psi")$summary
 summary(reward_mod, pars = "sigma_varphi")$summary
 summary(reward_mod, pars = "sigma_xi")$summary
+
+# Transformed mu - make probabilities
+
+View(summary(reward_mod, pars = "mu_trans_open")$summary)
+View(summary(reward_mod, pars = "mu_trans_cont")$summary)
 
