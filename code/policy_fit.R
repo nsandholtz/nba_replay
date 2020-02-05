@@ -149,4 +149,6 @@ gamma_empirical_num/gamma_empirical_denom
 # expected given that we are making estimates based on
 # a single game of data.  
 
-# Need to do something about saving the output for the simulation
+# Saving the output, which is used in the simulation
+
+saveRDS(policy_mod, "./model_output/policy_fit.rds")
