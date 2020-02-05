@@ -2,27 +2,25 @@ data {
   // Defining dimensions
   int<lower=1> N_obs; // number of observations
   int<lower=1> T_int; // number of time intervals
-  int<lower=2> P; // number of players
-  int<lower=2> G; // number of positions
-  int<lower=2> R; // number of court regions
-  int<lower=2> K; // base model row space of TPT Slice (region by defense)
+  int<lower=2> L1; // dimension of (players by region by defense)
+  int<lower=2> L2; // dimension of (positions by region by defense)
+  int<lower=2> L3; // base model row space (region by defense)
   // Raw data
   int<lower=0, upper=1> A[N_obs]; 
-  int<lower=1, upper=K> A_states[N_obs]; 
-  int<lower=1, upper=P> A_players[N_obs]; 
-  int<lower=1, upper=R> A_regions[N_obs]; 
+  int<lower=1, upper=L1> A_state[N_obs]; 
   int<lower=1, upper=T_int> A_time[N_obs];
   // Indexing players
-  int<lower=1> player_position[P]; // index of player positions
+  int<lower=1> L1_to_L2[L1]; // index of player positions
+  int<lower=1> L2_to_L3[L2];
   // Final-stage (Hyperprior) fixed values
   row_vector[T_int] gamma_mean; // this is the prior gamma values
 }
 
 parameters {
   // Means
-  matrix[T_int, K] theta[P];
-  matrix[T_int, K] beta[G];
-  matrix[T_int, K] gamma;
+  matrix[T_int, L1] theta;
+  matrix[T_int, L2] beta;
+  matrix[T_int, L3] gamma;
   // AR(1) Parameters
   real<lower=0> sigma_theta;
   real<lower=0> sigma_beta;
@@ -46,27 +44,20 @@ transformed parameters {
 
 model {
  // Top level
- for(i in 1:N_obs){
-   if (A_regions[i] != 4) // 4 denotes the 'heave' region
-     A[i] ~ bernoulli_logit(theta[A_players[i]][A_time[i], A_states[i]]);
-   else 
-     A[i] ~ bernoulli_logit(gamma[A_time[i], A_states[i]]);
+ for(n in 1:N_obs){
+     A[n] ~ bernoulli_logit(theta[A_time[n], A_state[n]]);
  }
   // First stage of hierarchy  
-  for(p in 1:P){
-    for(k in 1:K){
-      theta[p][,k] ~ multi_normal(beta[player_position[p]][,k], Sigma_theta);
-    }
+  for(l in 1:L1){
+    theta[ ,l] ~ multi_normal(beta[, L1_to_L2[l]], Sigma_theta);
   }
   // Second stage of hierarchy
-  for(g in 1:G){
-    for(k in 1:K){
-      beta[g][,k] ~ multi_normal(gamma[,k], Sigma_beta);
-    }
+  for(l in 1:L2){
+    beta[, l] ~ multi_normal(gamma[, L2_to_L3[l]], Sigma_beta);
   }
   // Mean hyperpriors
-  for(k in 1:K){
-    gamma[,k] ~ multi_normal(gamma_mean, Sigma_gamma);
+  for(l in 1:L3){
+    gamma[, l] ~ multi_normal(gamma_mean, Sigma_gamma);
   }
   // AR(1) Hyperpriors
   sigma_theta ~ cauchy(0, 2.5);
@@ -74,5 +65,11 @@ model {
   sigma_gamma ~ cauchy(0, 2.5);
   rho ~ uniform(0, 1);
 }
-
-
+generated quantities {
+  matrix[T_int, L1] trans_theta;
+  for(t in 1:T_int){
+    for(l in 1:L1){
+		trans_theta[t, l] = exp(theta[t, l])/(1 + exp(theta[t, l]));
+    }
+  }
+}
