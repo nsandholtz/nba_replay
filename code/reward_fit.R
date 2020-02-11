@@ -14,6 +14,7 @@ dat = read.csv("./data/2013_11_01_MIA_BRK_formatted.csv")
 # policy model.  We also simplify the court regions
 # to three levels --- (paint, long2, and three)
 
+# Define levels first
 dat_reward = dat %>%
   filter(location_id != 'heave',
          event_id %in% c(3,4)) %>%
@@ -24,18 +25,24 @@ dat_reward = dat %>%
                                ifelse(court_region == c('dunk'), 
                                       'paint', court_region)),
          court_region = as.factor(as.character(court_region)),
-         player_region = as.factor(paste(entity,
-                                         court_region,
-                                         sep = "_")), 
-         position_region = as.factor(paste(position_simple, 
+         player_region = interaction(entity,
+                                     court_region,
+                                     sep = "_", lex.order = T), 
+         position_region = interaction(position_simple, 
                                            court_region,
-                                           sep = "_")))
+                                           sep = "_"))
 
+# Getting indexes for stan ----
 
-player_positions <- dat_reward %>% 
+player_positions <- dat %>% 
+  mutate(entity = factor(as.character(entity))) %>%
   group_by(entity) %>% summarize(group = first(position_simple),
                                  pos = as.numeric(as.factor(first(position_simple)))) %>%
   arrange(entity)
+
+A_state_L1 = levels(dat_policy$player_region_defense)
+A_state_L2 = levels(dat_policy$position_region_defense)
+A_state_L3 = levels(dat_policy$region_defense)
 
 # Stan inputs ----
 
@@ -62,8 +69,8 @@ options(mc.cores = 2)
 begin_time <- proc.time()
 reward_mod <- stan(file = "~/Dropbox/Luke_Research/Shot_Policy/nba_replay/code/stan_models/reward_model.stan",
                    data = reward_stan_input,
-                   iter = 50000,
-                   warmup = 25000,
+                   iter = 5000,
+                   warmup = 2500,
                    chains = 2,
                    thin = 2)
 run_time <- proc.time() - begin_time

@@ -14,6 +14,8 @@ dat = read.csv("./data/2013_11_01_MIA_BRK_formatted.csv")
 # and we use only three player positions --- (G,F,C).
 # We also simplify the court regions to three levels --- (paint, long2, three)
 
+# Define levels first
+
 dat_policy = dat %>%
   filter(location_id != 'heave') %>%
   mutate(entity = factor(as.character(entity)),
