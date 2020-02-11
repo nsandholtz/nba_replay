@@ -9,8 +9,8 @@ data {
   int<lower=0, upper=1> A[N_obs]; 
   int<lower=1, upper=L1> A_state[N_obs]; 
   int<lower=1, upper=T_int> A_time[N_obs];
-  // Indexing players
-  int<lower=1> L1_to_L2[L1]; // index of player positions
+  // Connecting hierarchy indexes
+  int<lower=1> L1_to_L2[L1]; 
   int<lower=1> L2_to_L3[L2];
   // Final-stage (Hyperprior) fixed values
   row_vector[T_int] gamma_mean; // this is the prior gamma values

@@ -9,12 +9,9 @@ dat = read.csv("./data/2013_11_01_MIA_BRK_formatted.csv")
 # a column for the second stage of the hierarchical prior,
 # a column for interval of the shot clock (3 intervals)
 
-# For simplicity in this one-game tutorial, 
-# we do not estimate the shooting probability of 'heaves',
-# and we use only three player positions --- (G,F,C).
+# For simplicity in this one-game tutorial
+# we use only three player positions --- (G,F,C).
 # We also simplify the court regions to three levels --- (paint, long2, three)
-
-# Define levels first
 
 dat_transition = dat %>%
   mutate(event_next = lead(event_id),
@@ -68,16 +65,6 @@ dat_transition = dat %>%
          region_defense,
          region_defense_next,
          time_int)
-
-
-         # position_region_defense = interaction(position_simple, 
-         #                                       court_region,
-         #                                       def_pres, 
-         #                                       sep = "_", lex.order = T),
-         # region_defense = interaction(court_region,
-         #                              def_pres,
-         #                              sep = "_", lex.order = T),
-         
 
 # Getting indexes for stan ----
 player_positions <- dat %>% 
@@ -161,46 +148,8 @@ summary(transition_mod, pars = "rho")$summary
 
 # Results ----
 
-# Compare model estimates to empirical probabilities
-
-# Model estimates --- inverse logit transform
-theta_prob = data.frame(matrix(exp(theta_sum[,1])/(1 + exp(theta_sum[,1])), length(A_state_L1), 3),
-                        row.names = A_state_L1)
-beta_prob = data.frame(matrix(exp(beta_sum[,1])/(1 + exp(beta_sum[,1])), length(A_state_L2), 3),
-                       row.names = A_state_L2)
-gamma_prob = data.frame(matrix(exp(gamma_sum[,1])/(1 + exp(gamma_sum[,1])), length(A_state_L3), 3),
-                        row.names = A_state_L3)
-colnames(theta_prob) = colnames(beta_prob) = colnames(gamma_prob) = c('0-8','8-16','16-24')
-
-# Empirical probabilities
-
-beta_empirical_num = dat_policy %>%
-  filter(event_id %in% c(3,4)) %>%
-  with(table(position_region_defense, time_int))
-
-beta_empirical_denom = dat_policy %>%
-  with(table(position_region_defense, time_int))
-
-gamma_empirical_num = dat_policy %>%
-  filter(event_id %in% c(3,4)) %>%
-  with(table(region_defense, time_int))
-
-gamma_empirical_denom = dat_policy %>%
-  with(table(region_defense, time_int))
-
-# Comparison
-
-beta_prob
-beta_empirical_num/beta_empirical_denom
-
-gamma_prob
-gamma_empirical_num/gamma_empirical_denom
-
-# The shrinkage/borrowing strength from lower levels of 
-# the hierarchy is strongly evident.  This is to be
-# expected given that we are making estimates based on
-# a single game of data.  
+lambda_draws = extract(transition_mod, pars = "lambda")$lambda[1:150,,,]
 
 # Saving the output, which is used in the simulation
 
-saveRDS(transition_mod, "./model_output/transition_fit.rds")
+saveRDS(lambda_draws, "./model_output/lambda_draws.rds")

@@ -14,7 +14,26 @@ dat = read.csv("./data/2013_11_01_MIA_BRK_formatted.csv")
 # policy model.  We also simplify the court regions
 # to three levels --- (paint, long2, and three)
 
-# Define levels first
+# Define factor levels
+player_region_levels = dat %>% 
+  mutate(entity = as.factor(as.character(entity)),
+         court_region = as.character(location_id),
+         court_region = ifelse(court_region %in% c('arc3', 'corner3'),
+                               'three',
+                               ifelse(court_region == c('dunk'), 
+                                      'paint', court_region)),
+         court_region = as.factor(as.character(court_region)),
+         player_region = interaction(entity,
+                                     court_region,
+                                     sep = "_",
+                                     lex.order = T)) %>%
+  with(levels(player_region))
+
+# Remove heaves from levels
+heave_indexes = which(unlist(lapply(strsplit(player_region_levels, "_"), function(x) x[2])) == "heave")
+levels_no_heave = player_region_levels[-heave_indexes]
+
+# Filter data applicable for reward model
 dat_reward = dat %>%
   filter(location_id != 'heave',
          event_id %in% c(3,4)) %>%
@@ -25,9 +44,10 @@ dat_reward = dat %>%
                                ifelse(court_region == c('dunk'), 
                                       'paint', court_region)),
          court_region = as.factor(as.character(court_region)),
-         player_region = interaction(entity,
-                                     court_region,
-                                     sep = "_", lex.order = T), 
+         player_region = factor(paste(as.character(entity),
+                                      as.character(court_region),
+                                     sep = "_"),
+                                levels = levels_no_heave),
          position_region = interaction(position_simple, 
                                            court_region,
                                            sep = "_"))
@@ -40,27 +60,41 @@ player_positions <- dat %>%
                                  pos = as.numeric(as.factor(first(position_simple)))) %>%
   arrange(entity)
 
-A_state_L1 = levels(dat_policy$player_region_defense)
-A_state_L2 = levels(dat_policy$position_region_defense)
-A_state_L3 = levels(dat_policy$region_defense)
+L1_levels = levels(dat_reward$player_region)
+L2_levels = levels(dat_reward$position_region)
+L3_levels = levels(dat_reward$court_region)
+
+L1_to_L2 = NA
+for(i in 1:length(L1_levels)){
+  matching_tool_1 = strsplit(L1_levels[i], "_")[[1]]
+  state_position = as.character(player_positions$group[match(matching_tool_1[1],player_positions$entity)])
+  matching_tool_2 = paste(state_position, matching_tool_1[2], sep = "_")
+  L1_to_L2[i] = match(matching_tool_2, L2_levels)
+}
+
+L2_to_L3 = NA
+for(i in 1:length(L2_levels)){
+  L2_to_L3[i] = match(substr(L2_levels[i], 3, nchar(L2_levels[i])), L3_levels)
+}
 
 # Stan inputs ----
 
 reward_stan_input <- list(
   # Defining dimensions
   N_obs = nrow(dat_reward),
-  P = length(unique(dat_reward$entity)),
-  H = length(unique(dat_reward$position_simple)),
-  R = length(unique(dat_reward$court_region)),
+  L1 = length(L1_levels),
+  L2 = length(L2_levels),
+  L3 = length(L3_levels),
   # Raw data
   M = ifelse(dat_reward$event_id == 3, 1, 0),
-  M_player = as.numeric(dat_reward$entity),  
-  M_group = as.numeric(dat_reward$position_simple),  
+  M_player_region = as.numeric(dat_reward$player_region),  
   M_region = as.numeric(dat_reward$court_region),  
   M_open = ifelse(dat_reward$def_pres == 'open', 1, 0),
-  # Indexing players
-  player_group = player_positions$pos
+  # Connecting hierarchy indexes
+  L1_to_L2 = L1_to_L2,
+  L2_to_L3 = L2_to_L3,
   # Final-stage (Hyperprior) fixed values
+  varphi_mean = 0
 )
 
 # Fit model ----
@@ -96,4 +130,5 @@ View(summary(reward_mod, pars = "mu_trans_open")$summary)
 View(summary(reward_mod, pars = "mu_trans_cont")$summary)
 
 # Saving output for simulation
+mu_draws = extract(reward_mod, pars = "mu")$mu[1:150,,]
 
