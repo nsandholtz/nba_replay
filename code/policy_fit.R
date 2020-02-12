@@ -120,5 +120,5 @@ summary(policy_mod, pars = "rho")$summary
 
 # Saving the output, which is used in the simulation
 
-theta_draws = extract(reward_mod, pars = "theta")$theta[1:150,]
-saveRDS(policy_mod, "./model_output/policy_fit.rds")
+theta_draws = extract(policy_mod, pars = "theta")$theta
+saveRDS(theta_draws, "./model_output/theta_draws.rds")

@@ -128,8 +128,8 @@ summary(reward_mod, pars = "sigma_varphi")$summary
 summary(reward_mod, pars = "sigma_xi")$summary
 
 # Saving output for simulation
-mu_draws = extract(reward_mod, pars = "mu")$mu[1:150,]
-xi_draws = extract(reward_mod, pars = "xi")$xi[1:150,]
+mu_draws = extract(reward_mod, pars = "mu")$mu
+xi_draws = extract(reward_mod, pars = "xi")$xi
 
 saveRDS(mu_draws, "./model_output/mu_draws.rds")
 saveRDS(xi_draws, "./model_output/xi_draws.rds")

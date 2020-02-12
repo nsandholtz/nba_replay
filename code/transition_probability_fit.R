@@ -152,5 +152,5 @@ summary(transition_mod, pars = "rho")$summary
 
 # Saving the output, which is used in the simulation
 
-lambda_draws = extract(transition_mod, pars = "lambda")$lambda[1:150,,,]
+lambda_draws = extract(transition_mod, pars = "lambda")$lambda
 saveRDS(lambda_draws, "./model_output/lambda_draws.rds")
