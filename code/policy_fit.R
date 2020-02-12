@@ -77,22 +77,26 @@ policy_stan_input <- list(
   A = ifelse(dat_policy$event_id %in% c(3,4), 1, 0),
   A_state = as.numeric(dat_policy$player_region_defense),  
   A_time = dat_policy$time_int,
-  # Indexing players
+  # Connecting hierarchy indexes
   L1_to_L2 = L1_to_L2,
   L2_to_L3 = L2_to_L3,
   # Final-stage (Hyperprior) fixed values
-  gamma_mean = rep(0, length(unique(dat_policy$time_int)))
+  gamma_mean = rep(0, length(unique(dat_policy$time_int))),
+  half_cauchy_scale = 2.5
 )
 
 # Fit model ----
 
+n_iter = 2000
+n_warmup = 500
+n_chains = 2
 options(mc.cores = 2)
 begin_time <- proc.time()
 policy_mod <- stan(file = "~/Dropbox/Luke_Research/Shot_Policy/nba_replay/code/stan_models/policy_model.stan",
                    data = policy_stan_input,
-                   iter = 2000,
-                   warmup = 500,
-                   chains = 2)
+                   iter = n_iter,
+                   warmup = n_warmup,
+                   chains = n_chains)
 run_time <- proc.time() - begin_time
 print(run_time) 
 
@@ -109,43 +113,6 @@ summary(policy_mod, pars = "sigma_beta")$summary
 summary(policy_mod, pars = "sigma_gamma")$summary
 summary(policy_mod, pars = "rho")$summary
 
-# Results ----
-
-# Compare model estimates to empirical probabilities
-
-# Model estimates --- inverse logit transform
-theta_prob = data.frame(matrix(exp(theta_sum[,1])/(1 + exp(theta_sum[,1])), length(A_state_L1), 3),
-                        row.names = A_state_L1)
-beta_prob = data.frame(matrix(exp(beta_sum[,1])/(1 + exp(beta_sum[,1])), length(A_state_L2), 3),
-                       row.names = A_state_L2)
-gamma_prob = data.frame(matrix(exp(gamma_sum[,1])/(1 + exp(gamma_sum[,1])), length(A_state_L3), 3),
-                        row.names = A_state_L3)
-colnames(theta_prob) = colnames(beta_prob) = colnames(gamma_prob) = c('0-8','8-16','16-24')
-
-# Empirical probabilities
-
-beta_empirical_num = dat_policy %>%
-  filter(event_id %in% c(3,4)) %>%
-  with(table(position_region_defense, time_int))
-
-beta_empirical_denom = dat_policy %>%
-  with(table(position_region_defense, time_int))
-
-gamma_empirical_num = dat_policy %>%
-  filter(event_id %in% c(3,4)) %>%
-  with(table(region_defense, time_int))
-
-gamma_empirical_denom = dat_policy %>%
-  with(table(region_defense, time_int))
-
-# Comparison
-
-beta_prob
-beta_empirical_num/beta_empirical_denom
-
-gamma_prob
-gamma_empirical_num/gamma_empirical_denom
-
 # The shrinkage/borrowing strength from lower levels of 
 # the hierarchy is strongly evident.  This is to be
 # expected given that we are making estimates based on
@@ -153,4 +120,5 @@ gamma_empirical_num/gamma_empirical_denom
 
 # Saving the output, which is used in the simulation
 
+theta_draws = extract(reward_mod, pars = "theta")$theta[1:150,]
 saveRDS(policy_mod, "./model_output/policy_fit.rds")

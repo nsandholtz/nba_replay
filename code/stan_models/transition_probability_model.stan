@@ -9,15 +9,15 @@ data {
   int<lower=2> L3_r; // Level 3 row space of TPT
   int<lower=2> L3_c; // Level 3 column space of TPT
   // Raw data
-  int<lower=1, upper=L1_c> S_next[N_obs]; 
-  int<lower=1, upper=L1_r> S_orig[N_obs]; 
-  int<lower=1, upper=T_int> S_time[N_obs];
-  // Indexing players to positions
-  int<lower=1> L1_to_L2[L1_c]; // index of player positions
+  int<lower=1, upper=L1_c> S_next[N_obs]; // indexing next state (given a_n = 'no shot')
+  int<lower=1, upper=L1_r> S_orig[N_obs]; // indexing current state
+  int<lower=1, upper=T_int> S_time[N_obs]; // indexing time interval of each moment
+  // Indexes to connect hierarchies
+  int<lower=1> L1_to_L2[L1_c];
   int<lower=1> L2_to_L3[L2_c];
-  // int<lower=1> player_position[P]; // index of player positions
   // Final-stage (Hyperprior) fixed values
    row_vector[T_int] omega_mean; // this is the prior gamma values
+   real half_cauchy_scale; //  hyperprior scale value of SDs
 }
 
 parameters {
@@ -31,41 +31,46 @@ parameters {
 }
 
 transformed parameters {
+  // Construct AR(1) matrices
   matrix[T_int, T_int] Sigma_lambda;
   matrix[T_int, T_int] Sigma_zeta;
   matrix[T_int, T_int] Sigma_omega;
   for(i in 1:T_int){
     for(j in 1:T_int){
-      Sigma_lambda[i,j] = pow(sigma_lambda, 2)*pow(rho, abs(i-j)); // define Sigma_lambda
-      Sigma_zeta[i,j] = pow(sigma_zeta,2)*pow(rho, abs(i-j)); // define Sigma_zeta
-      Sigma_omega[i,j] = pow(sigma_omega,2)*pow(rho, abs(i-j)); // define Sigma_omega
+      Sigma_lambda[i,j] = pow(sigma_lambda, 2)*pow(rho, abs(i-j)); 
+      Sigma_zeta[i,j] = pow(sigma_zeta,2)*pow(rho, abs(i-j)); 
+      Sigma_omega[i,j] = pow(sigma_omega,2)*pow(rho, abs(i-j)); 
     }
   }
 }
 
 model {
+   // Likelihood
   for(n in 1:N_obs){
     S_next[n] ~ categorical_logit(col(lambda[S_orig[n]], S_time[n]));
   }
+  // First stage of hierarchy  
   for(i in 1:L1_r){
     for(j in 1:L1_c){
       lambda[i][j, ] ~ multi_normal(zeta[L1_to_L2[i]][L1_to_L2[j]], Sigma_lambda);
     }
   }
+  // Second stage of hierarchy
   for(i in 1:L2_r){
     for(j in 1:L2_c){
       zeta[i][j, ] ~ multi_normal(omega[L2_to_L3[i]][L2_to_L3[j]], Sigma_zeta);
     }
   }
+  // Final-stage hyperpriors
   for(i in 1:L3_r){
     for(j in 1:L3_c){
       omega[i][j, ] ~ multi_normal(omega_mean, Sigma_omega);
     }
   }
   // AR(1) Hyperpriors
-  sigma_lambda ~ cauchy(0, 2.5);
-  sigma_zeta ~ cauchy(0, 2.5);
-  sigma_omega ~ cauchy(0, 2.5);
+  sigma_lambda ~ cauchy(0, half_cauchy_scale);
+  sigma_zeta ~ cauchy(0, half_cauchy_scale);
+  sigma_omega ~ cauchy(0, half_cauchy_scale);
   rho ~ uniform(0, 1);
 }
 
@@ -81,6 +86,3 @@ model {
 //     }
 //   }
 // }
-
-
-

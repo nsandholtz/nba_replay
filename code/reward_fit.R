@@ -94,19 +94,22 @@ reward_stan_input <- list(
   L1_to_L2 = L1_to_L2,
   L2_to_L3 = L2_to_L3,
   # Final-stage (Hyperprior) fixed values
-  varphi_mean = 0
+  varphi_mean = 0,
+  half_cauchy_scale = 2.5
 )
 
 # Fit model ----
 
+n_iter = 2000
+n_warmup = 500
+n_chains = 2
 options(mc.cores = 2)
 begin_time <- proc.time()
 reward_mod <- stan(file = "~/Dropbox/Luke_Research/Shot_Policy/nba_replay/code/stan_models/reward_model.stan",
                    data = reward_stan_input,
-                   iter = 5000,
-                   warmup = 2500,
-                   chains = 2,
-                   thin = 2)
+                   iter = n_iter,
+                   warmup = n_warmup,
+                   chains = n_chains)
 run_time <- proc.time() - begin_time
 print(run_time) 
 
@@ -124,11 +127,9 @@ summary(reward_mod, pars = "sigma_psi")$summary
 summary(reward_mod, pars = "sigma_varphi")$summary
 summary(reward_mod, pars = "sigma_xi")$summary
 
-# Transformed mu - make probabilities
-
-View(summary(reward_mod, pars = "mu_trans_open")$summary)
-View(summary(reward_mod, pars = "mu_trans_cont")$summary)
-
 # Saving output for simulation
-mu_draws = extract(reward_mod, pars = "mu")$mu[1:150,,]
+mu_draws = extract(reward_mod, pars = "mu")$mu[1:150,]
+xi_draws = extract(reward_mod, pars = "xi")$xi[1:150,]
 
+saveRDS(mu_draws, "./model_output/mu_draws.rds")
+saveRDS(xi_draws, "./model_output/xi_draws.rds")

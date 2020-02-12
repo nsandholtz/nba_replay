@@ -118,18 +118,22 @@ transition_stan_input <- list(
   L1_to_L2 = L1_to_L2,
   L2_to_L3 = L2_to_L3,
   # Final-stage (Hyperprior) fixed values
-  omega_mean = rep(0, length(unique(dat_transition$time_int)))
+  omega_mean = rep(0, length(unique(dat_transition$time_int))),
+  half_cauchy_scale = 2.5
 )
 
 # Fit model ----
 
+n_iter = 2000
+n_warmup = 500
+n_chains = 2
 options(mc.cores = 2)
 begin_time <- proc.time()
 transition_mod <- stan(file = "~/Dropbox/Luke_Research/Shot_Policy/nba_replay/code/stan_models/transition_probability_model.stan",
                    data = transition_stan_input,
-                   iter = 200,
-                   warmup = 50,
-                   chains = 2)
+                   iter = n_iter,
+                   warmup = n_warmup,
+                   chains = n_chains)
 run_time <- proc.time() - begin_time
 print(run_time) 
 
@@ -146,10 +150,7 @@ summary(transition_mod, pars = "sigma_zeta")$summary
 summary(transition_mod, pars = "sigma_omega")$summary
 summary(transition_mod, pars = "rho")$summary
 
-# Results ----
-
-lambda_draws = extract(transition_mod, pars = "lambda")$lambda[1:150,,,]
-
 # Saving the output, which is used in the simulation
 
+lambda_draws = extract(transition_mod, pars = "lambda")$lambda[1:150,,,]
 saveRDS(lambda_draws, "./model_output/lambda_draws.rds")
