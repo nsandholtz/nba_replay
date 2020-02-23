@@ -23,7 +23,6 @@ theta_draws = readRDS("./model_output/theta_draws.rds")
 xi_draws = readRDS("./model_output/xi_draws.rds")
 n_draws = 300
 
-str(xi_draws)
 
 ########################################
 ##########    ALGORITHM 1    ###########
@@ -90,7 +89,7 @@ algorithm_1 = function(s_0,
 #########   SIMULATE PLAYS   ###########
 ########################################
 
-n_sim = 50
+n_sim = 300
 
 # MIAMI SIMULATIONS
 MIA_points = NA
@@ -167,11 +166,85 @@ for(iter in 1:n_sim){
 ########################################
 
 # Compare simulations to empirical
-dat %>% filter(team == "MIA") %>% with(sum(points))
-hist(MIA_points)
-dat %>% filter(team == "MIA") %>% with(abline(v = sum(points), col = "red"))
+plot(density(MIA_points), col = "red", main = "Simulations: MIA vs BRK")
+dat %>% filter(team == "MIA") %>% with(abline(v = sum(points), 
+                                              col = "red",
+                                              lty = 2))
 
-dat %>% filter(team == "BRK") %>% with(sum(points))
-hist(BRK_points)
-dat %>% filter(team == "BRK") %>% with(abline(v = sum(points), col = "red"))
+lines(density(BRK_points))
+dat %>% filter(team == "BRK") %>% with(abline(v = sum(points),
+                                              lty = 2))
+
+########################################
+#########   ALTERED POLICY   ###########
+########################################
+
+# Identify MIA players
+MIA_players = dat %>%
+  filter(team == "MIA") %>%
+  distinct(entity) %>%
+  pull(entity)
+
+# Identify states to alter
+# 1) ALL Midrange shots
+to_alter_1 = c(paste(MIA_players, "long2_contested", sep = "_"),
+             paste(MIA_players, "long2_open", sep = "_"))
+# 2) ALL three point shots
+to_alter_2 = c(paste(MIA_players, "three_contested", sep = "_"),
+               paste(MIA_players, "three_open", sep = "_"))
+  
+
+# POLICY ALTERATION
+# Decrease midrange shot policy by 20% (except late in shot clock) and 
+# increase three point policy by 20% (regardless of time on clock)
+conservative_policy_change <- list(list(who_where = to_alter_1,
+                                        when = 2:3,
+                                        how_much = .8),
+                                   list(who_where = to_alter_2,
+                                        when = 1:3,
+                                        how_much = 1.2)
+                                   )
+
+# Alter the posterior draws of theta
+altered_theta_draws = alter_theta(theta_draws, 
+                                  altered_policy_rules = conservative_policy_change)
+
+# MIAMI ALTERED SIMULATIONS
+MIA_points_alt = NA
+for(iter in 1:n_sim){
+  cat(iter,"\r")
+  for(play in 1:nrow(MIA_initial_states)) {
+    if (play == 1) {
+      game_moments_MIA = algorithm_1(
+        s_0 = MIA_initial_states[play, "state"],
+        c_0 = MIA_initial_states[play, "shot_clock"],
+        theta_draws = altered_theta_draws,
+        mu_draws = mu_draws,
+        xi_draws = xi_draws,
+        lambda_draws = lambda_MIA_draws,
+        L_dist = shot_clock_dist,
+        num_mcmc = n_draws
+      )
+    } else {
+      game_moments_MIA = rbind(
+        game_moments_MIA,
+        algorithm_1(
+          s_0 = MIA_initial_states[play, "state"],
+          c_0 = MIA_initial_states[play, "shot_clock"],
+          theta_draws = altered_theta_draws,
+          mu_draws = mu_draws,
+          xi_draws = xi_draws,
+          lambda_draws = lambda_MIA_draws,
+          L_dist = shot_clock_dist,
+          num_mcmc = n_draws
+        )
+      )
+    }
+  }
+  MIA_points_alt[iter] = sum(game_moments_MIA$reward)
+}
+
+lines(density(MIA_points_alt), col = "blue")
+# Miami's projected distribution of possible scores increases
+
 

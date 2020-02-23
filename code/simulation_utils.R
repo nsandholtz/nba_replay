@@ -1,6 +1,7 @@
 library(dplyr)
 
 expit = function(x){exp(x)/(1+exp(x))}
+logit = function(p){log(p/(1-p))}
 
 softmax = function(x){exp(x)/sum(exp(x))}
 
@@ -61,3 +62,17 @@ get_t_int = function(c_n, num_intervals = 3){
   return(t_n)
 }
   
+alter_theta = function(theta_draws,
+                       altered_policy_rules,
+                       threshold = .9){
+  altered_theta_draws_probs = expit(theta_draws)
+    for(i in 1:length(altered_policy_rules)){
+      affected_inds = NULL
+      for(j in 1:length(altered_policy_rules[[i]]$who_where)){
+        affected_inds <- grep(altered_policy_rules[[i]]$who_where[j],dimnames(theta_draws)[[2]])
+        altered_theta_draws_probs[, affected_inds,altered_policy_rules[[i]]$when] <- altered_theta_draws_probs[, affected_inds,altered_policy_rules[[i]]$when]*altered_policy_rules[[i]]$how_much
+        altered_theta_draws_probs[, affected_inds,altered_policy_rules[[i]]$when][altered_theta_draws_probs[ , affected_inds,altered_policy_rules[[i]]$when] > threshold] <- threshold
+      }
+    }
+  return(logit(altered_theta_draws_probs))
+}
