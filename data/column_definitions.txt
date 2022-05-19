@@ -1,0 +1,20 @@
+Column definitions
+
+entity - a numeric code assigned to individual players
+event_id - numeric code of the on ball event (see key below)
+game clock - number of seconds remaining in quarter
+time - milliseconds since game start
+ndd - nearest defender distance (measured in feet)
+play - an index of plays (plays that ended in fouls and some other events were removed) 
+time_lapse - number of seconds until the next event in the play occurs
+
+event_id Key ----------------
+
+3 = Made shot
+4 = Missed Shot
+5 = Offensive rebound
+7 = Turnover
+21 = Dribble
+22 = Pass
+23 = Gaining possession of the ball (follows passes and assists)
+25 = Assist 
